@@ -1,0 +1,7 @@
+Frontend/node_modules/
+Frontend/.npm-cache/
+Frontend/dist/
+Backend/.env
+Backend/uploads/
+Backend/.venv/
+__pycache__/

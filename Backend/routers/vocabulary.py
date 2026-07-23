@@ -31,7 +31,7 @@ async def save_vocabulary(body: VocabularyBody, user: dict = Depends(current_use
         "revision_count": 0,
         "needs_revision": False,
         # Rich features (Phase 4)
-        "notes": "",
+        "notes": body.notes,   # saved at creation time
         "tags": [],
         "is_favorite": False,
         "source_document_id": document_id,
@@ -100,6 +100,23 @@ async def patch_vocabulary(word_id: str, body: VocabularyPatchBody, user: dict =
         await db.vocabulary.update_one({"_id": word["_id"]}, {"$set": updates})
     updated = await db.vocabulary.find_one({"_id": word["_id"]})
     return public(updated)
+
+
+@router.delete("/{word_id}")
+async def delete_vocabulary(word_id: str, user: dict = Depends(current_user)):
+    """Permanently delete a vocabulary word and all its annotations."""
+    word = await db.vocabulary.find_one({"_id": ObjectId(word_id), "user_id": user["_id"]})
+    if not word:
+        raise HTTPException(404, "Word not found.")
+    # Delete all annotations referencing this word
+    await db.annotations.delete_many({"vocabulary_id": word["_id"], "user_id": user["_id"]})
+    # Update document word count if word was tied to a document
+    doc_id = word.get("document_id")
+    await db.vocabulary.delete_one({"_id": word["_id"]})
+    if doc_id:
+        count = await db.vocabulary.count_documents({"user_id": user["_id"], "document_id": doc_id})
+        await db.documents.update_one({"_id": doc_id}, {"$set": {"word_count": count}})
+    return {"ok": True}
 
 
 @router.post("/{word_id}/review")

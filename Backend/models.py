@@ -31,6 +31,7 @@ class VocabularyBody(BaseModel):
     documentId: str | None = None
     phonetic: str = ""
     partOfSpeech: str = ""
+    notes: str = ""    # optional note saved at creation time
 
 
 class VocabularyPatchBody(BaseModel):
@@ -61,6 +62,21 @@ class AnnotationBody(BaseModel):
     text_end_offset: int
     surrounding_text: str = ""
     highlight_color: str = "#86efac"   # green default
+    note: str = ""                     # optional reader note
+
+
+# ── Bookmarks ─────────────────────────────────────────────────────────────────
+class BookmarkBody(BaseModel):
+    document_id: str
+    page_number: int = Field(ge=1)
+    note: str = ""                     # optional bookmark label
+
+
+# ── Reading Sessions ──────────────────────────────────────────────────────────
+class ReadingSessionBody(BaseModel):
+    document_id: str
+    duration_seconds: int = Field(ge=0)
+    pages_read: int = Field(ge=0, default=0)
 
 
 # ── Quiz ──────────────────────────────────────────────────────────────────────

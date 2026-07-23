@@ -1,9 +1,9 @@
 import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Clock, ExternalLink, FileUp, MoreVertical, Pencil, Trash2, X } from 'lucide-react'
+import { BookOpen, Clock, ExternalLink, FileUp, MoreVertical, Pencil, Timer, Trash2, X } from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import Shell from '../components/Shell'
-import { api, DocumentInfo } from '../api'
+import { api, DocumentInfo, ReadingStats } from '../api'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
@@ -55,6 +55,7 @@ export default function Library() {
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [thumbQueue, setThumbQueue] = useState<string[]>([])
+  const [readingStats, setReadingStats] = useState<ReadingStats>({})
   const navigate = useNavigate()
   const token = localStorage.getItem('lexivault_token') || ''
 
@@ -63,7 +64,19 @@ export default function Library() {
       .then(data => { setDocs(data); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    refresh()
+    api.readingStats().then(setReadingStats).catch(() => {})
+  }, [])
+
+  function formatReadingTime(docId: string) {
+    const stats = readingStats[docId]
+    if (!stats || stats.total_seconds < 60) return null
+    const m = Math.floor(stats.total_seconds / 60)
+    const h = Math.floor(m / 60)
+    if (h > 0) return `${h}h ${m % 60}m read`
+    return `${m}m read`
+  }
 
   // Queue docs without thumbnails for capture
   useEffect(() => {
@@ -192,6 +205,11 @@ export default function Library() {
                     {doc.total_pages > 0 && (
                       <span className="doc-card-chip">
                         📄 {doc.last_opened_page}/{doc.total_pages}
+                      </span>
+                    )}
+                    {formatReadingTime(doc.id) && (
+                      <span className="doc-card-chip">
+                        <Timer size={11} /> {formatReadingTime(doc.id)}
                       </span>
                     )}
                   </div>

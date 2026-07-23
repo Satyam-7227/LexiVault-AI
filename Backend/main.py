@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import db
 from deps import current_user
-from routers import auth, documents, vocabulary, quiz, ai, annotations, analytics
+from routers import auth, documents, vocabulary, quiz, ai, annotations, analytics, bookmarks, reading_sessions
 
 app = FastAPI(title="LexiVault AI API", version="2.0.0")
 
@@ -12,7 +12,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -24,6 +24,8 @@ app.include_router(quiz.router)
 app.include_router(ai.router)
 app.include_router(annotations.router)
 app.include_router(analytics.router)
+app.include_router(bookmarks.router)
+app.include_router(reading_sessions.router)
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
@@ -35,6 +37,9 @@ async def create_indexes():
     await db.vocabulary.create_index([("user_id", 1), ("document_id", 1)])
     await db.documents.create_index([("user_id", 1), ("uploaded_at", -1)])
     await db.annotations.create_index([("user_id", 1), ("document_id", 1)])
+    await db.bookmarks.create_index([("user_id", 1), ("document_id", 1), ("page_number", 1)])
+    await db.reading_sessions.create_index([("user_id", 1), ("document_id", 1)])
+    await db.reading_sessions.create_index([("user_id", 1), ("started_at", -1)])
 
 
 # ── Dashboard (kept in main for simplicity) ────────────────────────────────────

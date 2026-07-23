@@ -1052,3 +1052,92 @@ img { display: block; max-width: 100%; }
   .hero h1 { font-size: 2.5rem; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── PDF Word Highlighting — difficulty-colored ─────────────────────── */
+.highlight-word {
+  color: inherit;
+  border-radius: 3px;
+  cursor: pointer;
+  /* background and border-bottom are set inline via style attribute */
+  transition: filter 0.15s ease, transform 0.1s;
+}
+
+.highlight-word:hover {
+  filter: brightness(1.25);
+  transform: scale(1.03);
+}
+
+/* ── Sidebar Tabs ────────────────────────────────────────────────────── */
+.reader-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.reader-sidebar-header {
+  flex-shrink: 0;
+}
+
+/* ── Word Note Textarea ──────────────────────────────────────────────── */
+textarea.input {
+  font-family: inherit;
+  min-height: 56px;
+  line-height: 1.5;
+}
+
+/* ── Export button ───────────────────────────────────────────────────── */
+.btn-export {
+  background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(99,102,241,0.15));
+  border: 1px solid rgba(16,185,129,0.3);
+  color: var(--accent-green);
+}
+.btn-export:hover {
+  background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(99,102,241,0.25));
+}
+
+/* ── Vocab word card — note area ─────────────────────────────────────── */
+.word-card .note-area {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: var(--bg-overlay);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.word-card .note-area:hover { background: var(--bg-hover); }
+
+/* ── Bookmark badge on page ──────────────────────────────────────────── */
+@keyframes bookmarkPop {
+  0%   { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.bookmark-badge {
+  animation: bookmarkPop 0.25s ease;
+}
+
+/* ── Stat grid — expand to accommodate 6 cards on Dashboard ─────────── */
+.stat-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+/* ── Reading goal progress inside stat card ──────────────────────────── */
+.goal-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--bg-elevated);
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+}
+.goal-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+

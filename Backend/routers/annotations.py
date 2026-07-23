@@ -17,7 +17,24 @@ DIFFICULTY_COLORS = {
 @router.get("")
 async def get_annotations(document_id: str, user: dict = Depends(current_user)):
     query = {"user_id": user["_id"], "document_id": ObjectId(document_id)}
-    return [public(item) async for item in db.annotations.find(query)]
+    annotations = [public(item) async for item in db.annotations.find(query)]
+
+    # Enrich each annotation with current vocab difficulty/color
+    for ann in annotations:
+        vocab_id = ann.get("vocabulary_id")
+        if vocab_id:
+            try:
+                vocab = await db.vocabulary.find_one({"_id": ObjectId(vocab_id), "user_id": user["_id"]})
+                if vocab:
+                    ann["difficulty"] = vocab.get("difficulty", "Medium")
+                    ann["highlight_color"] = DIFFICULTY_COLORS.get(vocab.get("difficulty", "Medium"), ann["highlight_color"])
+                    ann["meaning"] = vocab.get("meaning", "")
+                    ann["phonetic"] = vocab.get("phonetic", "")
+                    ann["part_of_speech"] = vocab.get("part_of_speech", "")
+                    ann["example_sentence"] = vocab.get("example_sentence", "")
+            except Exception:
+                pass
+    return annotations
 
 
 @router.post("")
@@ -33,6 +50,27 @@ async def create_annotation(body: AnnotationBody, user: dict = Depends(current_u
     # Determine highlight color from difficulty
     color = DIFFICULTY_COLORS.get(vocab.get("difficulty", "Medium"), body.highlight_color)
 
+    # Check if annotation already exists for this word on this document (upsert)
+    existing = await db.annotations.find_one({
+        "user_id": user["_id"],
+        "document_id": ObjectId(body.document_id),
+        "vocabulary_id": ObjectId(body.vocabulary_id),
+    })
+    if existing:
+        await db.annotations.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "page_number": body.page_number,
+                "text_start_offset": body.text_start_offset,
+                "text_end_offset": body.text_end_offset,
+                "surrounding_text": body.surrounding_text,
+                "highlight_color": color,
+                "note": body.note,
+            }}
+        )
+        existing["highlight_color"] = color
+        return public(existing)
+
     annotation = {
         "user_id": user["_id"],
         "document_id": ObjectId(body.document_id),
@@ -43,6 +81,7 @@ async def create_annotation(body: AnnotationBody, user: dict = Depends(current_u
         "text_end_offset": body.text_end_offset,
         "surrounding_text": body.surrounding_text,
         "highlight_color": color,
+        "note": body.note,
         "created_at": now(),
     }
     result = await db.annotations.insert_one(annotation)

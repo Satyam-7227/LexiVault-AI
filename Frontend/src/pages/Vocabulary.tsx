@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, Search, Star } from 'lucide-react'
+import { BookOpen, Download, FileText, Pencil, Search, Star, Trash2, X, Check } from 'lucide-react'
 import Shell from '../components/Shell'
-import { api, Word } from '../api'
+import { api, exportWordsToCSV, Word } from '../api'
 
 const FILTERS = ['All', 'Favorites', 'Needs Review', 'Easy', 'Medium', 'Hard'] as const
 type Filter = typeof FILTERS[number]
@@ -11,6 +11,10 @@ export default function Vocabulary() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('All')
   const [error, setError] = useState('')
+
+  // Inline note editing
+  const [editingNote, setEditingNote] = useState<string | null>(null)  // word id
+  const [noteValue, setNoteValue] = useState('')
 
   useEffect(() => {
     api.vocabulary({ search })
@@ -44,6 +48,34 @@ export default function Vocabulary() {
     } catch { /* ignore */ }
   }
 
+  async function deleteWord(w: Word) {
+    if (!confirm(`Remove "${w.word}" from your vault? This cannot be undone.`)) return
+    try {
+      await api.deleteWord(w.id)
+      setWords(prev => prev.filter(x => x.id !== w.id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed.')
+    }
+  }
+
+  function startEditNote(w: Word) {
+    setEditingNote(w.id)
+    setNoteValue(w.notes || '')
+  }
+
+  async function saveNote(w: Word) {
+    try {
+      await api.patchWord(w.id, { notes: noteValue })
+      setWords(prev => prev.map(x => x.id === w.id ? { ...x, notes: noteValue } : x))
+    } catch { /* ignore */ }
+    setEditingNote(null)
+  }
+
+  function cancelEditNote() {
+    setEditingNote(null)
+    setNoteValue('')
+  }
+
   return (
     <Shell>
       <div className="page-header">
@@ -52,7 +84,19 @@ export default function Vocabulary() {
           <h1>Vocabulary Notebook</h1>
           <p>Every word you save, grouped by when you learned it.</p>
         </div>
-        <div className="badge">{words.length} words</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="badge">{words.length} words</div>
+          {words.length > 0 && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => exportWordsToCSV(filtered.length > 0 ? filtered : words)}
+              title="Export vocabulary as CSV"
+              style={{ gap: 6 }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters + Search */}
@@ -82,18 +126,72 @@ export default function Vocabulary() {
                         <div className="word-card-title">{w.word}</div>
                         {w.phonetic && <div className="word-card-phonetic">{w.phonetic}</div>}
                       </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                         <span className={`pill ${w.difficulty.toLowerCase()}`}>{w.difficulty}</span>
                         <button className="btn btn-icon btn-ghost"
                           onClick={() => toggleFavorite(w)}
                           style={{ color: w.is_favorite ? 'var(--accent-yellow)' : 'var(--text-muted)', padding: 4 }}>
-                          <Star size={14} fill={w.is_favorite ? 'currentColor' : 'none'} />
+                          <Star size={13} fill={w.is_favorite ? 'currentColor' : 'none'} />
+                        </button>
+                        <button className="btn btn-icon btn-ghost"
+                          onClick={() => deleteWord(w)}
+                          style={{ color: 'var(--text-muted)', padding: 4 }}
+                          title="Remove from vault">
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
 
                     <div className="word-card-meaning">{w.meaning}</div>
-                    <div className="word-card-phonetic" style={{ marginTop: 2 }}>{w.exampleSentence}</div>
+                    <div className="word-card-phonetic" style={{ marginTop: 2, fontStyle: 'italic' }}>{w.exampleSentence}</div>
+
+                    {/* Inline note section */}
+                    {editingNote === w.id ? (
+                      <div style={{ marginTop: 8 }}>
+                        <textarea
+                          className="input"
+                          value={noteValue}
+                          autoFocus
+                          onChange={e => setNoteValue(e.target.value)}
+                          rows={2}
+                          placeholder="Your personal note…"
+                          style={{ fontSize: '0.75rem', padding: '7px 10px', resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 6 }}
+                        />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-primary btn-sm" style={{ gap: 4, flex: 1 }} onClick={() => saveNote(w)}>
+                            <Check size={12} /> Save note
+                          </button>
+                          <button className="btn btn-secondary btn-sm" onClick={cancelEditNote}>
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{ marginTop: 6, cursor: 'pointer' }}
+                        onClick={() => startEditNote(w)}
+                        title="Click to edit note"
+                      >
+                        {w.notes ? (
+                          <div style={{
+                            fontSize: '0.72rem', color: 'var(--text-secondary)',
+                            background: 'var(--bg-overlay)', borderRadius: 6, padding: '5px 8px',
+                            display: 'flex', gap: 6, alignItems: 'start',
+                          }}>
+                            <FileText size={11} style={{ flexShrink: 0, marginTop: 2, color: 'var(--brand)' }} />
+                            <span>{w.notes}</span>
+                          </div>
+                        ) : (
+                          <div style={{
+                            fontSize: '0.68rem', color: 'var(--text-muted)',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            opacity: 0.6,
+                          }}>
+                            <Pencil size={10} /> Add a note
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {(w.tags?.length ?? 0) > 0 && (
                       <div className="word-card-tags">
@@ -111,7 +209,7 @@ export default function Vocabulary() {
         <div className="empty-state">
           <BookOpen size={48} />
           <h2>Your vault is waiting.</h2>
-          <p>Save words from the Dashboard and they will appear here.</p>
+          <p>Save words from the Reader and they will appear here.</p>
         </div>
       )}
     </Shell>

@@ -1,9 +1,9 @@
 import { ChangeEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Document, Page, pdfjs } from 'react-pdf'
-import { BookOpen, Brain, FileUp, RotateCcw, Search, Sparkles, Trophy } from 'lucide-react'
+import { BookOpen, Brain, Clock, FileUp, Flame, RotateCcw, Search, Sparkles, Trophy } from 'lucide-react'
 import Shell from '../components/Shell'
-import { api, DashboardStats, DocumentInfo, Explanation } from '../api'
+import { api, DashboardStats, DocumentInfo, Explanation, TodayReading } from '../api'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
@@ -37,6 +37,10 @@ export default function Dashboard() {
   // FSRS review
   const [reviewIdx, setReviewIdx] = useState(0)
   const [reviewFlipped, setReviewFlipped] = useState(false)
+  // Reading stats
+  const [streak, setStreak] = useState(0)
+  const [todayReading, setTodayReading] = useState<TodayReading>({ today_seconds: 0, today_minutes: 0 })
+  const DAILY_GOAL_MINUTES = 30
   const navigate = useNavigate()
   const token = localStorage.getItem('lexivault_token') || ''
 
@@ -46,7 +50,11 @@ export default function Dashboard() {
       api.documents().then(setDocuments),
     ]).catch(e => showMsg(e.message, 'notice'))
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    refresh()
+    api.analyticsOverview().then(d => setStreak(d.streak_days)).catch(() => {})
+    api.todayReading().then(setTodayReading).catch(() => {})
+  }, [])
 
   // Load PDF blob when doc changes
   useEffect(() => {
@@ -147,6 +155,36 @@ export default function Dashboard() {
             <div className="stat-card-label">{s.label}</div>
           </div>
         ))}
+
+        {/* Reading streak card */}
+        <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div className="stat-card-icon" style={{ color: 'var(--accent-yellow)' }}><Flame size={18} /></div>
+          <div className="stat-card-value" style={{ color: streak > 0 ? 'var(--accent-yellow)' : undefined }}>
+            {streak} {streak === 1 ? 'day' : 'days'}
+          </div>
+          <div className="stat-card-label">Vocab streak</div>
+        </div>
+
+        {/* Today's reading goal card */}
+        <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div className="stat-card-icon" style={{ color: 'var(--accent-blue)' }}><Clock size={18} /></div>
+          <div className="stat-card-value">
+            {todayReading.today_minutes.toFixed(0)}<span style={{ fontSize: '0.9rem', fontWeight: 500 }}>/{DAILY_GOAL_MINUTES}m</span>
+          </div>
+          <div className="stat-card-label">Today's goal</div>
+          {/* Mini progress bar */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+            background: 'var(--bg-elevated)',
+          }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min((todayReading.today_minutes / DAILY_GOAL_MINUTES) * 100, 100)}%`,
+              background: todayReading.today_minutes >= DAILY_GOAL_MINUTES ? 'var(--accent-green)' : 'var(--accent-blue)',
+              borderRadius: 4, transition: 'width 0.6s ease',
+            }} />
+          </div>
+        </div>
       </div>
 
       {/* FSRS Inline Review Section */}

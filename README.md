@@ -16,6 +16,19 @@ LexiVault AI is a powerful, locally-hosted platform that turns every PDF into a 
 
 ---
 
+## 📸 Screenshots
+
+*(Add your screenshots to a folder named `assets/` in your repository and uncomment the lines below)*
+
+<!--
+![Dashboard Preview](assets/dashboard.png)
+![PDF Reader & AI Assistant](assets/reader.png)
+![Vocabulary Notebook](assets/vocabulary.png)
+![Analytics Page](assets/analytics.png)
+-->
+
+---
+
 ## 🛠️ Technology Stack
 
 *   **Frontend**: React 18, TypeScript, Vite, React Router, React-PDF, Recharts, Framer Motion.

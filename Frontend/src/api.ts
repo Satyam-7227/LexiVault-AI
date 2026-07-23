@@ -52,7 +52,30 @@ export type Annotation = {
   text_end_offset: number
   surrounding_text: string
   highlight_color: string
+  note: string
   created_at: string
+  // enriched fields from vocab join
+  difficulty?: Difficulty
+  meaning?: string
+  phonetic?: string
+  part_of_speech?: string
+  example_sentence?: string
+}
+
+export type Bookmark = {
+  id: string
+  document_id: string
+  page_number: number
+  note: string
+  created_at: string
+  updated_at: string
+}
+
+export type ReadingStats = Record<string, { total_seconds: number; session_count: number }>
+
+export type TodayReading = {
+  today_seconds: number
+  today_minutes: number
 }
 
 export type DashboardStats = {
@@ -85,6 +108,34 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.detail || 'Something went wrong.')
   return data
+}
+
+// ── CSV Export helper ──────────────────────────────────────────────────────
+export function exportWordsToCSV(words: Word[]) {
+  const header = ['Word', 'Phonetic', 'Part of Speech', 'Meaning', 'Simple Explanation', 'Example', 'Synonyms', 'Difficulty', 'Notes', 'Tags', 'Saved At']
+  const rows = words.map(w => [
+    `"${w.word}"`,
+    `"${w.phonetic || ''}"`,
+    `"${w.partOfSpeech || ''}"`,
+    `"${w.meaning.replace(/"/g, '""')}"`,
+    `"${w.simpleExplanation.replace(/"/g, '""')}"`,
+    `"${w.exampleSentence.replace(/"/g, '""')}"`,
+    `"${(w.synonyms || []).join(', ')}"`,
+    `"${w.difficulty}"`,
+    `"${(w.notes || '').replace(/"/g, '""')}"`,
+    `"${(w.tags || []).join(', ')}"`,
+    `"${new Date(w.saved_at).toLocaleDateString()}"`,
+  ])
+  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `lexivault-vocabulary-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 // ── API client ─────────────────────────────────────────────────────────────
@@ -134,10 +185,10 @@ export const api = {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ word, context }),
     }),
-  save: (word: Explanation, documentId?: string) =>
+  save: (word: Explanation, documentId?: string, notes?: string) =>
     request<Word>('/vocabulary', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...word, documentId }),
+      body: JSON.stringify({ ...word, documentId, notes: notes || '' }),
     }),
   vocabulary: (params?: { search?: string; tag?: string; favorites_only?: boolean; document_id?: string }) => {
     const q = new URLSearchParams()
@@ -151,6 +202,7 @@ export const api = {
     request<Word>(`/vocabulary/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
     }),
+  deleteWord: (id: string) => request<{ ok: boolean }>(`/vocabulary/${id}`, { method: 'DELETE' }),
   reviewQueue: () => request<Word[]>('/vocabulary/review'),
   submitReview: (id: string, rating: 1 | 2 | 3 | 4) =>
     request<{ ok: boolean; next_review_at: string; interval_days: number }>(`/vocabulary/${id}/review`, {
@@ -161,12 +213,28 @@ export const api = {
   annotations: (documentId: string) => request<Annotation[]>(`/annotations?document_id=${documentId}`),
   createAnnotation: (body: {
     document_id: string; vocabulary_id: string; word: string; page_number: number;
-    text_start_offset: number; text_end_offset: number; surrounding_text: string;
+    text_start_offset: number; text_end_offset: number; surrounding_text: string; note?: string;
   }) =>
     request<Annotation>('/annotations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     }),
   deleteAnnotation: (id: string) => request<{ ok: boolean }>(`/annotations/${id}`, { method: 'DELETE' }),
+
+  // Bookmarks
+  bookmarks: (documentId: string) => request<Bookmark[]>(`/bookmarks?document_id=${documentId}`),
+  createBookmark: (body: { document_id: string; page_number: number; note?: string }) =>
+    request<Bookmark>('/bookmarks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }),
+  deleteBookmark: (id: string) => request<{ ok: boolean }>(`/bookmarks/${id}`, { method: 'DELETE' }),
+
+  // Reading Sessions
+  logReadingSession: (body: { document_id: string; duration_seconds: number; pages_read: number }) =>
+    request<{ ok: boolean }>('/reading-sessions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }),
+  readingStats: () => request<ReadingStats>('/reading-sessions/stats'),
+  todayReading: () => request<TodayReading>('/reading-sessions/today'),
 
   // Quiz
   quiz: (documentId?: string) => {
